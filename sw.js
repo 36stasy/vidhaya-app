@@ -8,8 +8,11 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(req.url);
   var fonts = /(^|\.)fonts\.(googleapis|gstatic)\.com$/.test(url.hostname);
   if (url.origin !== self.location.origin && !fonts) return;
+  /* Саму страницу всегда тянем мимо кэша браузера: иначе телефон может
+     сутки держать старую версию и не узнать про починку. */
+  var opts = (req.mode === 'navigate' || /\.(html|js|json|txt)$/.test(url.pathname)) ? { cache: 'reload' } : undefined;
   e.respondWith(
-    fetch(req).then(function (res) {
+    fetch(req, opts).then(function (res) {
       if (res && (res.ok || res.type === 'opaque')) {
         var copy = res.clone();
         caches.open(CACHE).then(function (c) { c.put(req, copy); });
