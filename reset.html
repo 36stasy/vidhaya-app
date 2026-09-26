@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Новый пароль - Vidhaya</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Forum&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --stage:#EFE7D8; --bg:#fff; --surface:#FBF7F1; --line:#EEE7DC;
+  --ink:#1E160E; --ink-soft:#75695B; --accent:#E87A22; --accent-ink:#B85E14;
+  --grad:linear-gradient(135deg,#FBB53D,#EA6A1E); --glow:0 10px 26px -8px rgba(233,120,30,.45);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --stage:#171310; --bg:#211B16; --surface:#1B1610; --line:#332A21;
+    --ink:#F2E9DC; --ink-soft:#A2958A; --accent:#E8A33D; --accent-ink:#E8A33D;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;min-height:100dvh;display:flex;align-items:flex-start;justify-content:center;
+  padding:6vh 20px 40px;background:var(--stage);font-family:'Jost',system-ui,sans-serif;color:var(--ink);}
+.card{width:min(420px,100%);background:var(--bg);border-radius:28px;padding:30px 24px 24px;
+  box-shadow:0 30px 60px -30px rgba(60,40,20,.35);}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:22px;}
+.logo img{width:52px;height:52px;border-radius:14px;}
+.logo span{font-family:'Forum',Georgia,serif;font-size:1.5rem;letter-spacing:.02em;}
+h1{font-family:'Forum',Georgia,serif;font-weight:400;font-size:1.75rem;line-height:1.2;margin:0 0 10px;}
+p{margin:0 0 14px;color:var(--ink-soft);font-size:.97rem;line-height:1.5;}
+.f{position:relative;margin-bottom:10px;}
+input{width:100%;padding:15px 96px 15px 16px;border-radius:14px;border:1.5px solid var(--line);
+  font:inherit;font-size:1.05rem;background:var(--surface);color:var(--ink);}
+input:focus{outline:none;border-color:var(--accent);}
+.eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:0;padding:6px 8px;
+  font:inherit;font-size:.8rem;color:var(--ink-soft);cursor:pointer;}
+.go{display:block;width:100%;margin-top:12px;padding:15px;border:0;border-radius:14px;cursor:pointer;
+  background:var(--grad);color:#fff;font:inherit;font-size:1.05rem;font-weight:500;box-shadow:var(--glow);}
+.go[disabled]{opacity:.6;cursor:wait;}
+.err{display:none;margin:10px 0 0;color:#B84239;font-size:.92rem;}
+.err.show{display:block;}
+.help{display:block;margin-top:18px;text-align:center;color:var(--ink-soft);font-size:.9rem;}
+.help a{color:var(--accent-ink);}
+.hint{font-size:.85rem;margin:-2px 0 12px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo"><img src="icon-192.png" alt=""><span>Vidhaya</span></div>
+
+  <div id="form-box">
+    <h1 id="title">Новый пароль</h1>
+    <p id="lead">Придумайте пароль, с которым будете заходить в календарь. Не короче восьми знаков.</p>
+    <form id="f" autocomplete="on">
+      <div class="f">
+        <input id="p1" type="password" autocomplete="new-password" placeholder="Новый пароль" aria-label="Новый пароль">
+        <button type="button" class="eye" id="eye">Показать</button>
+      </div>
+      <div class="f" id="f2">
+        <input id="p2" type="password" autocomplete="new-password" placeholder="Ещё раз тот же пароль" aria-label="Повторите пароль">
+      </div>
+      <p class="hint">Запишите его где-нибудь - он понадобится, если приложение придётся ставить заново.</p>
+      <button class="go" id="go" type="submit">Сохранить пароль</button>
+      <p class="err" id="err" role="alert"></p>
+    </form>
+  </div>
+
+  <div id="done-box" hidden>
+    <h1 id="done-t">Готово</h1>
+    <p id="done-p">Пароль сохранён. Заходите в календарь по своей почте и новому паролю.</p>
+    <a class="go" style="text-decoration:none;text-align:center" href="https://app.vidhaya.ru">Открыть календарь</a>
+  </div>
+
+  <a class="help" href="https://t.me/AndreyVidhayaClub_bot" target="_blank" rel="noopener">Не получается? <u>Напишите нам</u></a>
+</div>
+
+<script>
+(function(){
+  var API='https://api.vidhaya.ru';
+  var q=new URLSearchParams(location.search);
+  /* токен приходит из письма как ?t=..., но переживём и старый вид со ссылкой через решётку */
+  var token=q.get('t')||'';
+  if(!token){ var m=location.hash.match(/([A-Za-z0-9._-]{20,})\s*$/); if(m) token=m[1]; }
+  var mode=q.get('m')||'pass';
+
+  function $(id){ return document.getElementById(id); }
+  var err=$('err');
+  function show(msg){ err.textContent=msg; err.classList.add('show'); }
+
+  function done(t,p){ $('form-box').hidden=true; $('done-t').textContent=t; $('done-p').textContent=p; $('done-box').hidden=false; }
+
+  function send(path,body,okT,okP){
+    var ctl=new AbortController(), timer=setTimeout(function(){ ctl.abort(); },12000);
+    fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body),signal:ctl.signal})
+      .then(function(r){
+        clearTimeout(timer);
+        if(r.ok) return null;
+        return r.json().catch(function(){ return {}; }).then(function(j){ throw j; });
+      })
+      .then(function(){ done(okT,okP); })
+      .catch(function(e){
+        clearTimeout(timer);
+        $('f').hidden=false; $('go').disabled=false; $('go').textContent='Сохранить пароль';
+        var d=(e&&e.data)||{};
+        if(d.token) show('Ссылка уже не работает - она живёт несколько часов. Запросите новую в приложении, кнопка «Забыли пароль?».');
+        else if(d.password) show('Такой пароль не подошёл: нужно не меньше восьми знаков.');
+        else if(e&&e.name==='AbortError') show('Сервер долго не отвечает. Попробуйте ещё раз через минуту.');
+        else show('Не получилось сохранить. Попробуйте ещё раз, а если не выходит - напишите нам.');
+      });
+  }
+
+  /* подтверждение почты - полей не нужно, отправляем сразу */
+  if(mode==='verify'){
+    $('title').textContent='Подтверждаем почту';
+    $('lead').textContent='Секунду...';
+    $('f').hidden=true;
+    send('/api/collections/users/confirm-verification',{token:token},
+         'Почта подтверждена','Спасибо, всё в порядке. Заходите в календарь.');
+    return;
+  }
+  if(mode==='email'){
+    $('title').textContent='Новая почта';
+    $('lead').textContent='Введите свой нынешний пароль - и почта для входа сменится.';
+    $('p1').placeholder='Ваш пароль';
+    $('f2').hidden=true;
+    $('go').textContent='Сменить почту';
+  }
+
+  if(!token){
+    show('Ссылка неполная. Откройте её из письма целиком или запросите новую в приложении.');
+    $('go').disabled=true;
+  }
+
+  $('eye').addEventListener('click',function(){
+    var i=$('p1'), on=i.type==='password';
+    i.type=on?'text':'password'; $('p2').type=i.type;
+    this.textContent=on?'Скрыть':'Показать';
+  });
+
+  $('f').addEventListener('submit',function(ev){
+    ev.preventDefault(); err.classList.remove('show');
+    var p1=$('p1').value, p2=$('p2').value;
+    if(mode==='email'){
+      if(!p1){ show('Введите пароль.'); return; }
+      $('go').disabled=true; $('go').textContent='Сохраняю...';
+      send('/api/collections/users/confirm-email-change',{token:token,password:p1},
+           'Почта изменилась','Теперь заходите по новому адресу и своему прежнему паролю.');
+      return;
+    }
+    if(p1.length<8){ show('Пароль коротковат - нужно хотя бы восемь знаков.'); return; }
+    if(p1!==p2){ show('Пароли не совпали. Проверьте второе поле.'); return; }
+    $('go').disabled=true; $('go').textContent='Сохраняю...';
+    send('/api/collections/users/confirm-password-reset',{token:token,password:p1,passwordConfirm:p2},
+         'Готово','Пароль сохранён. Заходите в календарь по своей почте и новому паролю.');
+  });
+})();
+</script>
+</body>
+</html>
