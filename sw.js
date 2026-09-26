@@ -24,3 +24,32 @@ self.addEventListener('fetch', function (e) {
     })
   );
 });
+
+/* ===== Уведомления «Послание дня» =====
+   Текст приходит с сервера уже готовым: телефон только показывает его.
+   Нажатие открывает приложение, а если оно уже открыто - просто выводит наверх. */
+self.addEventListener('push', function (e) {
+  var d = { title: 'Vidhaya', body: 'Послание дня уже ждёт.', url: 'https://app.vidhaya.ru/' };
+  try { if (e.data) d = Object.assign(d, e.data.json()); } catch (err) {
+    try { d.body = e.data.text() || d.body; } catch (e2) {}
+  }
+  e.waitUntil(self.registration.showNotification(d.title, {
+    body: d.body,
+    icon: 'icon-192.png',
+    badge: 'icon-192.png',
+    tag: d.tag || 'vidhaya-day',
+    renotify: true,
+    data: { url: d.url }
+  }));
+});
+
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close();
+  var target = (e.notification.data && e.notification.data.url) || 'https://app.vidhaya.ru/';
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].url.indexOf(self.location.origin) === 0 && 'focus' in list[i]) return list[i].focus();
+    }
+    return clients.openWindow(target);
+  }));
+});
