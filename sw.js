@@ -32,6 +32,10 @@ self.addEventListener('fetch', function (e) {
    Текст приходит с сервера уже готовым: телефон только показывает его.
    Нажатие открывает приложение, а если оно уже открыто - просто выводит наверх. */
 self.addEventListener('push', function (e) {
+
+  /* Красная точка на иконке. Приложение может быть закрыто - значит
+     ставить её должна служебная часть, прямо при получении послания. */
+  try { if (self.navigator && self.navigator.setAppBadge) self.navigator.setAppBadge(1); } catch (e) {}
   var d = { title: '✨ Послание дня', body: 'Послание дня уже ждёт.', url: 'https://app.vidhaya.ru/' };
   try { if (e.data) d = Object.assign(d, e.data.json()); } catch (err) {
     try { d.body = e.data.text() || d.body; } catch (e2) {}
