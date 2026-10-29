@@ -36,6 +36,9 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(req.url);
   var fonts = /(^|\.)fonts\.(googleapis|gstatic)\.com$/.test(url.hostname);
   if (url.origin !== self.location.origin && !fonts) return;
+  /* проверка «есть ли обновление» каждый раз с новым хвостом ?t= - в кэш её не кладём,
+     иначе он копит по записи на каждое открытие (найдено 29.10.2026) */
+  if (/\/version\.txt$/.test(url.pathname)) return;
   /* Саму страницу всегда тянем мимо кэша браузера: иначе телефон может
      сутки держать старую версию и не узнать про починку. */
   var opts = (req.mode === 'navigate' || /\.(html|js|json|txt)$/.test(url.pathname)) ? { cache: 'reload' } : undefined;
